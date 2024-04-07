@@ -1,41 +1,79 @@
 package main
 
 import (
-	"fmt"
-	"html/template"
+	"context"
+	"database/sql"
 	"net/http"
 
-	"younes.dev/go/api"
-	"younes.dev/go/data"
+	"github.com/sarulabs/di"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
-func handleHello(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello from go"))
-}
-
-func handleTemplate(w http.ResponseWriter, r *http.Request){
-	html, err := template.ParseFiles("templates/index.tmpl")
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal Server Error"))
-		return
-	}
-	html.Execute(w, data.GetAll())
-}
-
 func main() {
-	server := http.NewServeMux()
-	server.HandleFunc("/hello", handleHello)
-	server.HandleFunc("/template", handleTemplate)
-	server.HandleFunc("/api/exhibitions", api.Get)
-	server.HandleFunc("/api/exhibitions/new", api.Post)
+    app := createApp()
+    defer app.Delete()
 
-	fs := http.FileServer(http.Dir("./public"))
-	server.Handle("/", fs)
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        // Create a request and delete it once it has been handled.
+        // Deleting the request will close the connection.
+        request, _ := app.SubContainer()
+        defer request.Delete()
 
-	err := http.ListenAndServe(":8888", server)
-	if err == nil {
-		fmt.Println("Error while opening the server")
-	}
+        handler(w, r, request)
+    })
+
+    http.ListenAndServe(":8080", nil)
+}
+
+func createApp() di.Container {
+    builder, _ := di.NewBuilder()
+
+    builder.Add([]di.Def{
+        {
+            // Define the connection pool in the App scope.
+            // There will be one for the whole application.
+            Name:  "mysql-pool",
+            Scope: di.App,
+            Build: func(ctn di.Container) (interface{}, error) {
+                db, err := sql.Open("mysql", "user:password@/")
+                db.SetMaxOpenConns(1)
+                return db, err
+            },
+            Close: func(obj interface{}) error {
+                return obj.(*sql.DB).Close()
+            },
+        },
+        {
+            // Define the connection in the Request scope.
+            // Each request will use its own connection.
+            Name:  "mysql",
+            Scope: di.Request,
+            Build: func(ctn di.Container) (interface{}, error) {
+                pool := ctn.Get("mysql-pool").(*sql.DB)
+                return pool.Conn(context.Background())
+            },
+            Close: func(obj interface{}) error {
+                return obj.(*sql.Conn).Close()
+            },
+        },
+    }...)
+
+    // Returns the app Container.
+    return builder.Build()
+}
+
+func handler(w http.ResponseWriter, r *http.Request, ctn di.Container) {
+    // Retrieve the connection.
+    conn := ctn.Get("mysql").(*sql.Conn)
+
+    var variable, value string
+
+    row := conn.QueryRowContext(context.Background(), "SHOW STATUS WHERE `variable_name` = 'Threads_connected'")
+    row.Scan(&variable, &value)
+
+    // Display how many connections are opened.
+    // As the connection is closed when the request is deleted,
+    // the value should not be be higher than the number set with db.SetMaxOpenConns(1).
+    w.Write([]byte(variable + ": " + value))
 }
