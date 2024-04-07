@@ -6,10 +6,6 @@ type Exhibition struct {
 	Image       string
 }
 
-func GetAll() []Exhibition {
-	return list
-}
-
 var list = []Exhibition{
 	{
 		Title:       "Life in Ancient Greek",
@@ -31,4 +27,12 @@ var list = []Exhibition{
 		Description: "Dive into the world of sea monsters and explore the myths and legends that have captured our imaginations for centuries. Through fossils, ancient maps, and interactive displays, discover the truth behind the stories and learn about the real-life creatures that inhabit our oceans.",
 		Image:       "sea-monsters.png",
 	},
+}
+
+func GetAll() []Exhibition {
+	return list
+}
+
+func Add(e Exhibition) {
+	list = append(list, e)
 }
