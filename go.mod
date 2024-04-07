@@ -1,3 +1,3 @@
-module younes.dev/go
+module younes.dev/go/crypto
 
 go 1.22.1
