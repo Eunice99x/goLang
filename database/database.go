@@ -3,13 +3,21 @@ package database
 import (
 	"fmt"
 	"log"
+	"webapp/go/model"
 
 	"github.com/spf13/viper"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
-func ConnectDB() *gorm.DB {
+type Dbinstance struct {
+	Db *gorm.DB
+}
+
+var DB Dbinstance
+
+func ConnectDB() {
 	vi := viper.New()
 	vi.SetConfigFile(".env")
 	vi.ReadInConfig()
@@ -19,9 +27,16 @@ func ConnectDB() *gorm.DB {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatal("Connection failed to the database")
 	}
 
-	fmt.Println("Database connection successful.")
-	return db
+	log.Println("connected")
+	db.Logger = logger.Default.LogMode(logger.Info)
+	log.Println("running migrations")
+	db.AutoMigrate(&model.User{})
+
+	DB = Dbinstance{
+		Db: db,
+	}
+
 }
