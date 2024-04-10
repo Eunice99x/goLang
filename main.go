@@ -1,33 +1,15 @@
 package main
 
 import (
-	"webapp/go/controllers"
-	"webapp/go/database"
-
-	"github.com/gofiber/fiber/v2"
+	"net/http"
 )
 
-
-func setUpRoutes(app *fiber.App) {
-	// app.Get("/hello", controllers.Hello)
-	// app.Get("/hi", controllers.Hi)
-	app.Post("/add", controllers.AddUser)
-}
-  
-
-
 func main() {
+	mux := http.NewServeMux()
 
-	database.ConnectDB()
+	mux.HandleFunc("/",func(w http.ResponseWriter, r *http.Request){
+		w.Write([]byte("Hello, World!"))
+	})
 
-   app := fiber.New()
-
-   setUpRoutes(app)
-
-//    app.Get("/",func (c fiber.Ctx) error {
-// 		return c.SendString("Hello, World!")
-//    })
-
-
-   app.Listen(":3000")
+	http.ListenAndServe(":3000", mux)
 }
